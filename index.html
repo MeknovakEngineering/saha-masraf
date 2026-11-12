@@ -1045,10 +1045,21 @@ const MND=(function(){
     wr(K.fold,id);return id;}
   function fname(k,rec){const lab=COLS[k]||DOCS[k];if(!COLS[k])return lab+'.json';
     return (lab+'_'+[rec.refNo||rec.name||'',rec.client||''].filter(Boolean).join('_')+'_'+rec.id).replace(/[\\\/:*?"<>|]+/g,'-').slice(0,180)+'.json';}
+  // Rapor dosyasının etiketleri: Yusuf'un platformu raporları (fotoğraflarıyla)
+  // indirmeden listeyi bunlardan gösterir — durum, rapor no, müşteri, mühendis,
+  // tarih aralığı, masraf toplamı. Her güncellemede yenilenir.
+  function cut(v,n){v=String(v==null?'':v);while(new TextEncoder().encode(v).length>n)v=v.slice(0,-1);return v;}
+  function props(k,obj){const p={app:APPTAG,k:k};if(!COLS[k]||!obj)return p;
+    const st=obj.state||{},days=(st.selectedDays||[]).slice().sort();let mg='';try{mg=String(masrafGross(st));}catch(e){}
+    return Object.assign(p,{eng:engCode(obj.eng),st:obj.status||'',ref:cut(obj.refNo,40),cli:cut(obj.client,60),en:cut(obj.eng,60),
+      d1:days[0]||'',d2:days[days.length-1]||'',mg:mg,at:obj.savedAt||''});}
   async function put(k,rid,obj,fid,fold){const body=JSON.stringify(obj);
     if(fid){const u=await api(U+'/'+fid+'?uploadType=media&fields=id,modifiedTime',{method:'PATCH',headers:{'Content-Type':'application/json'},body});
-      if(u.ok){const j=await u.json();return {fid:j.id,mt:j.modifiedTime};}}
-    const meta1={name:fname(k,obj),parents:[fold],mimeType:'application/json',appProperties:Object.assign({app:APPTAG,k:k,rid:String(rid)},(COLS[k]&&obj&&obj.eng)?{eng:engCode(obj.eng)}:{})},b='mnb'+Date.now();
+      if(u.ok){const j=await u.json();
+        if(COLS[k]){const pp=Object.assign(props(k,obj),{rid:String(rid)});const m2=await api(F+'/'+fid+'?fields=id,modifiedTime',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({appProperties:pp,name:fname(k,obj)})});
+          if(m2.ok){const j2=await m2.json();return {fid:j2.id,mt:j2.modifiedTime};}}
+        return {fid:j.id,mt:j.modifiedTime};}}
+    const meta1={name:fname(k,obj),parents:[fold],mimeType:'application/json',appProperties:Object.assign(props(k,obj),{rid:String(rid)})},b='mnb'+Date.now();
     const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta1)+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+body+'\r\n--'+b+'--';
     const c=await api(U+'?uploadType=multipart&fields=id,modifiedTime',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:mp});
     const j=await c.json();return {fid:j.id,mt:j.modifiedTime};}
@@ -4006,10 +4017,14 @@ document.getElementById('btnMsHome').addEventListener('click',function(){ flushM
 // KURAL: Dosyada yapılan HER değişiklikte APP_VERSION artırılır ve
 // APP_CHANGELOG'un başına bir kayıt eklenir. Büyük yeni özellik → ilk sayı
 // artar (1.0 → 2.0); düzeltme / küçük ekleme → ikinci sayı artar (1.0 → 1.1).
-// Dosya adı da aynı sürümü taşır: MekNovak_Saha_Masraf_Raporu_v1.3.html
+// Dosya adı da aynı sürümü taşır: MekNovak_Saha_Masraf_Raporu_v1.4.html
 // Saha raporu bölümü Saha_Raporu_Hak_Edis_Teklif_v8.5 ile aynı koddan gelir.
-const APP_VERSION='1.3', APP_VERSION_DATE='12.11.2026';
+const APP_VERSION='1.4', APP_VERSION_DATE='12.11.2026';
 const APP_CHANGELOG=[
+  {v:'1.4',d:'12.11.2026',items:[
+    'Drive\'daki rapor dosyalarına durum, rapor no, müşteri, tarih ve masraf toplamı etiketleri eklendi: tamamlanan (PDF\'i oluşturulmuş) raporlar Yusuf\'un platformunda "Yusuf\'a Gönder"e basılmadan da görünür',
+    'Rapor sonradan değişirse etiketler de güncellenir'
+  ]},
   {v:'1.3',d:'12.11.2026',items:[
     'Google Drive: ana sayfada "☁️ Drive\'a Bağlan". Raporlar (masraflar ve fişlerle birlikte) ortak Drive\'daki MN_MuhendisRaporlari klasörüne kaydedilir; telefon değişse de raporlar kaybolmaz',
     'Telefona sadece bu telefonun mühendisinin (son seçilen servis mühendisi) raporları geri gelir; müşteri ve mühendis listeleri tüm mühendisler arasında birleşir',
